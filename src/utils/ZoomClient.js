@@ -31,7 +31,7 @@ const cleanTranscript = (str) => {
 };
 
 async function startMeetingJob(client) {
-  cron.schedule("10 20 * * *", async () => {
+  cron.schedule("12 20 * * *", async () => {
     try {
       console.log("Creating Meeting");
 
