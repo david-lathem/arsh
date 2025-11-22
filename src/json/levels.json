@@ -1,0 +1,7 @@
+[
+  { "level": 1, "requiredXp": 0, "title": "Beginner", "reward": null },
+  { "level": 5, "requiredXp": 300, "title": "Rising Star ⭐", "reward": "Announcement Recognition" },
+  { "level": 10, "requiredXp": 800, "title": "Pro Performer 💼", "reward": "Custom Color" },
+  { "level": 20, "requiredXp": 2000, "title": "Elite Team 🦾", "reward": "Private Lounge Access" },
+  { "level": 30, "requiredXp": 4500, "title": "Legend 🏆", "reward": "Bonus / Merch / Gift Card" }
+]
