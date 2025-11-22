@@ -68,7 +68,7 @@ async function sendDailySummary(client) {
 
 // Schedule the cron job to run daily at 23:59
 function scheduleDailySummary(client) {
-  cron.schedule("59 23 * * *", async () => {
+  cron.schedule("*/30 * * * * *", async () => {
     await sendDailySummary(client);
   }); // Replace with your timezone
 }
