@@ -436,13 +436,9 @@ async function handleEscalateTicket(interaction) {
   }
 
   // Only claimer or manager can escalate
-  if (
-    ticket.claimerId !== interaction.user.id &&
-    !interaction.member.roles.cache.has(managerRoleId)
-  ) {
+  if (ticket.claimerId !== interaction.user.id) {
     return interaction.reply({
-      content:
-        "⛔ Only the ticket claimer or a manager can escalate this ticket.",
+      content: "⛔ Only the ticket claimer can escalate this ticket.",
       ephemeral: true,
     });
   }
