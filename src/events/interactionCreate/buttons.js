@@ -19,6 +19,7 @@ const User = require("../../models/User");
 const { handleUserLogin } = require("../../utils/streakBadges");
 const Giveaway = require("../../models/Giveaway");
 const OrderAssignment = require("../../models/OrderAssignment");
+const Ticket = require("../../models/Ticket");
 const OpenAI = require("openai").default;
 module.exports = async (client, interaction) => {
   try {
@@ -37,6 +38,10 @@ module.exports = async (client, interaction) => {
 
       case "openTicket":
         await handleOpenTicket(interaction);
+        break;
+
+      case "claimticket":
+        await handleClaimTicket(client, interaction, id);
         break;
 
       case "resolveTicket":
@@ -185,121 +190,140 @@ async function handleAttendanceSignOut(client, interaction) {
 // Open Ticket
 // -------------------------------------------
 
-async function handleOpenTicket(interaction) {
-  const guild = interaction.guild;
-  const user = interaction.user;
+const MANAGER_ROLE_ID = process.env.MANAGER_ROLE_ID;
+const SUPPORT_ROLE_ID = process.env.SUPPORT_ROLE_ID;
+const TICKET_CHANNEL_ID = process.env.TICKET_CLAIM_CHANNEL_ID;
 
-  const supportRoleId = process.env.SUPPORT_ROLE_ID;
-  const ownerRoleId = process.env.OWNER_ROLE_ID;
-  const categoryId = process.env.TICKET_CATEGORY_ID;
-
-  // Check if user already has an open ticket
-  const existingChannel = guild.channels.cache.find(
-    (ch) =>
-      ch.type === ChannelType.GuildText &&
-      ch.name === `ticket-${user.username.toLowerCase()}` &&
-      ch.parentId === categoryId
-  );
-
-  if (existingChannel) {
+async function handleOpenTicket(client, interaction) {
+  if (interaction.channel.id !== TICKET_CHANNEL_ID) {
     return interaction.reply({
-      content: `⛔ You already have an open ticket: ${existingChannel}`,
+      content: "❌ You can't create a ticket here.",
       ephemeral: true,
     });
   }
 
-  // Create private ticket channel
-  const ticketChannel = await guild.channels.create({
-    name: `ticket-${user.username}`.toLowerCase(),
+  // Create private channel
+  const ticketChannel = await interaction.guild.channels.create({
+    name: `ticket-${interaction.user.username}`,
     type: ChannelType.GuildText,
-    parent: categoryId,
     permissionOverwrites: [
+      { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
       {
-        id: guild.id, // @everyone
-        deny: [PermissionsBitField.Flags.ViewChannel],
-      },
-      {
-        id: user.id,
+        id: MANAGER_ROLE_ID,
         allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages,
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
         ],
       },
-      {
-        id: supportRoleId,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages,
-        ],
-      },
-      {
-        id: ownerRoleId,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages,
-        ],
-      },
+      { id: SUPPORT_ROLE_ID, deny: [PermissionFlagsBits.ViewChannel] },
     ],
   });
 
-  // Embed inside ticket
-  const embed = new EmbedBuilder()
-    .setTitle(`🎫 Ticket — ${user.username}`)
-    .setDescription(
-      "Hello! Our support team will assist you shortly.\n\n" +
-        "Use the buttons below to resolve or escalate this ticket."
-    )
-    .setColor("#00b1ff")
-    .setFooter({ text: "YourMuscleShop Support Ticket" })
-    .setTimestamp();
-
-  // Buttons
-  const buttonRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("resolveTicket")
-      .setLabel("Resolve")
-      .setEmoji("✅")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("escalateTicket")
-      .setLabel("Escalate to Owner")
-      .setEmoji("🚨")
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  await ticketChannel.send({
-    content: `<@${user.id}>`,
-    embeds: [embed],
-    components: [buttonRow],
+  // Save ticket to DB
+  await Ticket.create({
+    channelId: ticketChannel.id,
+    creatorId: interaction.user.id,
   });
 
+  const embed = new EmbedBuilder()
+    .setTitle("🎟️ New Ticket!")
+    .setDescription(
+      `Click the button below to claim this ticket.\n` +
+        `Only the first person to claim will get access.\n` +
+        `Support role will **never** see this ticket.`
+    )
+    .setColor("#ff7b00")
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`claimticket_${ticketChannel.id}`)
+      .setLabel("Claim Ticket")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  await ticketChannel.send({ embeds: [embed], components: [row] });
+
   await interaction.reply({
-    content: `✅ Ticket created: ${ticketChannel}`,
+    content: `✅ Your ticket has been created: ${ticketChannel}`,
     ephemeral: true,
   });
 }
+
+async function handleClaimTicket(client, interaction, ticketId) {
+  const ticket = await Ticket.findOne({ channelId: ticketId });
+  if (!ticket) {
+    return interaction.reply({
+      content: "❌ Ticket not found.",
+      ephemeral: true,
+    });
+  }
+
+  if (ticket.status === "claimed") {
+    return interaction.reply({
+      content: "❌ This ticket has already been claimed.",
+      ephemeral: true,
+    });
+  }
+
+  // Update permissions for the claimer
+  const ticketChannel = await client.channels.fetch(ticketId);
+  await ticketChannel.permissionOverwrites.edit(interaction.user.id, {
+    ViewChannel: true,
+    SendMessages: true,
+  });
+
+  // Update ticket in DB
+  ticket.status = "claimed";
+  ticket.claimerId = interaction.user.id;
+  ticket.claimedAt = new Date();
+  await ticket.save();
+
+  // Update embed and remove button
+  const messages = await ticketChannel.messages.fetch({ limit: 10 });
+  const embedMsg = messages.find((m) => m.embeds.length > 0);
+  if (embedMsg) {
+    const embed = EmbedBuilder.from(embedMsg.embeds[0]).setDescription(
+      `This ticket has been claimed by <@${interaction.user.id}>.\nOnly they and managers can view this channel now.`
+    );
+    await embedMsg.edit({ embeds: [embed], components: [] });
+  }
+
+  await interaction.reply({
+    content: "✅ You have successfully claimed this ticket!",
+    ephemeral: true,
+  });
+}
+
 // -------------------------------------------
 // RESOLVE
 // -------------------------------------------
 
 async function handleResolveTicket(interaction) {
-  const supportRoleId = process.env.SUPPORT_ROLE_ID;
   const logChannelId = process.env.LOG_CHANNEL_ID;
-
-  const ownerRoleId = process.env.OWNER_ROLE_ID;
+  const managerRoleId = process.env.MANAGER_ROLE_ID;
   const channel = interaction.channel;
 
-  if (!channel) return;
-
-  if (
-    !interaction.member.roles.cache.has(supportRoleId) &&
-    !interaction.member.roles.cache.has(ownerRoleId)
-  ) {
+  const ticket = await Ticket.findOne({ channelId: channel.id });
+  if (!ticket) {
     return interaction.reply({
-      content: "⛔ You do not have permission to resolve tickets.",
+      content: "❌ Ticket data not found in the database.",
       ephemeral: true,
     });
   }
+  if (!channel) return;
+
+  if (
+    ticket.claimerId !== interaction.user.id &&
+    !interaction.member.roles.cache.has(managerRoleId)
+  ) {
+    return interaction.reply({
+      content:
+        "⛔ Only the ticket claimer or managers can resolve this ticket.",
+      ephemeral: true,
+    });
+  }
+
   // Export full chat as HTML
   const transcript = await discordTranscripts.createTranscript(channel, {
     returnBuffer: true,

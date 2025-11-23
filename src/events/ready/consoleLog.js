@@ -3,7 +3,11 @@ const cron = require("node-cron");
 const axios = require("axios");
 const { ChannelType, EmbedBuilder } = require("discord.js");
 const { startPoller } = require("../../utils/orderPoller");
-const { scheduleDailySummary } = require("../../utils/dailySummary");
+const {
+  scheduleDailySummary,
+  scheduleMonthlySummary,
+  scheduleWeeklySummary,
+} = require("../../utils/dailySummary");
 const User = require("../../models/User");
 const startMeetingJob = require("../../utils/ZoomClient");
 const Giveaway = require("../../models/Giveaway");
@@ -20,6 +24,8 @@ module.exports = async (client) => {
 
   // SEND DAILY SUMMARY ON HOW MUC ORDERS SORTED AND PAID AND OTHER THINGS
   scheduleDailySummary(client);
+  scheduleWeeklySummary(client);
+  scheduleMonthlySummary(client);
 
   // ZOOM MEETING INTEGRATION
   startMeetingJob(client);
