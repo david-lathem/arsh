@@ -5,6 +5,50 @@ const { OpenAI } = require("openai");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// meetingSchedule.js
+const meetingSchedule = [
+  {
+    day: 15,
+    department: "Managers",
+    cron: "0 8 15 * *", // 8:00 AM US time, every month
+  },
+  {
+    day: 16,
+    department: "Managers & Customer Care",
+    cron: "0 8 16 * *",
+  },
+  {
+    day: 22,
+    department: "Managers",
+    cron: "0 8 22 * *",
+  },
+  {
+    day: 23,
+    department: "Full Team",
+    cron: "0 8 23 * *",
+  },
+  {
+    day: 29,
+    department: "Managers",
+    cron: "0 8 29 * *",
+  },
+  {
+    day: 30,
+    department: "Managers & Customer Care",
+    cron: "0 8 30 * *",
+  },
+  {
+    day: 6,
+    department: "Managers",
+    cron: "0 8 6 * *",
+  },
+  {
+    day: 7,
+    department: "Full Team",
+    cron: "0 8 7 * *",
+  },
+];
+
 const zoom = Zoom({
   account_id: process.env.ZOOM_ACCOUNT_ID,
   client_id: process.env.ZOOM_CLIENT_ID,
@@ -31,7 +75,19 @@ const cleanTranscript = (str) => {
 };
 
 async function startMeetingJob(client) {
-  cron.schedule("12 20 * * *", async () => {
+  meetingSchedule.forEach(({ cron: cronExp, department }) => {
+    cron.schedule(
+      cronExp,
+      () => {
+        startMeeting(department);
+      },
+      { timezone: "America/New_York" }
+    );
+
+    console.log(`Scheduled: ${department} → ${cronExp} (US Time)`);
+  });
+
+  async function startMeeting(dep) {
     try {
       console.log("Creating Meeting");
 
@@ -40,7 +96,7 @@ async function startMeetingJob(client) {
         type: 1,
       });
 
-      const message = `@everyone Join the weekly meeting of Your Muscle Shop to discuss our weekly progress and other stuff. [Hop In](${meeting.join_url})`;
+      const message = `@everyone Join the meeting of Your Muscle Shop for **${dep}** to discuss our progress and other stuff. [Hop In](${meeting.join_url})`;
 
       const channel = client.channels.cache.get(process.env.MEETING_CHANNEL_ID);
 
@@ -171,7 +227,7 @@ ${truncated}`,
       console.error(err.response?.statusCode);
       console.error(err.response?.body);
     }
-  });
+  }
 }
 
 module.exports = startMeetingJob;
