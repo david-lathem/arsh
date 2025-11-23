@@ -193,21 +193,38 @@ async function handleAttendanceSignOut(client, interaction) {
 const MANAGER_ROLE_ID = process.env.MANAGER_ROLE_ID;
 const SUPPORT_ROLE_ID = process.env.SUPPORT_ROLE_ID;
 const TICKET_CHANNEL_ID = process.env.TICKET_CLAIM_CHANNEL_ID;
-
+const categoryId = process.env.TICKET_CATEGORY_ID;
 async function handleOpenTicket(client, interaction) {
-  if (interaction.channel.id !== TICKET_CHANNEL_ID) {
+  const guild = interaction.guild;
+  const user = interaction.user;
+
+  const existingChannel = guild.channels.cache.find(
+    (ch) =>
+      ch.type === ChannelType.GuildText &&
+      ch.name === `ticket-${user.username.toLowerCase()}` &&
+      ch.parentId === categoryId
+  );
+
+  if (existingChannel) {
     return interaction.reply({
-      content: "❌ You can't create a ticket here.",
+      content: `⛔ You already have an open ticket: ${existingChannel}`,
       ephemeral: true,
     });
   }
 
   // Create private channel
   const ticketChannel = await interaction.guild.channels.create({
-    name: `ticket-${interaction.user.username}`,
+    name: `ticket-${interaction.user.username}`.toLowerCase(),
     type: ChannelType.GuildText,
     permissionOverwrites: [
       { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.SendMessages,
+        ],
+      },
       {
         id: MANAGER_ROLE_ID,
         allow: [
@@ -217,6 +234,36 @@ async function handleOpenTicket(client, interaction) {
       },
       { id: SUPPORT_ROLE_ID, deny: [PermissionFlagsBits.ViewChannel] },
     ],
+  });
+
+  const Ticketembed = new EmbedBuilder()
+    .setTitle(`🎫 Ticket — ${user.username}`)
+    .setDescription(
+      "Hello! Our support team will assist you shortly.\n\n" +
+        "Use the buttons below to resolve or escalate this ticket."
+    )
+    .setColor("#00b1ff")
+    .setFooter({ text: "YourMuscleShop Support Ticket" })
+    .setTimestamp();
+
+  // Buttons
+  const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("resolveTicket")
+      .setLabel("Resolve")
+      .setEmoji("✅")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("escalateTicket")
+      .setLabel("Escalate to Manager")
+      .setEmoji("🚨")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  await ticketChannel.send({
+    content: `<@${user.id}>`,
+    embeds: [embed],
+    components: [buttonRow],
   });
 
   // Save ticket to DB
@@ -242,7 +289,8 @@ async function handleOpenTicket(client, interaction) {
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ticketChannel.send({ embeds: [embed], components: [row] });
+  const claimChannel = await client.channels.fetch(TICKET_CHANNEL_ID);
+  await claimChannel.send({ embeds: [embed], components: [row] });
 
   await interaction.reply({
     content: `✅ Your ticket has been created: ${ticketChannel}`,
@@ -372,28 +420,39 @@ async function handleResolveTicket(interaction) {
 // -------------------------------------------
 
 async function handleEscalateTicket(interaction) {
-  const supportRoleId = process.env.SUPPORT_ROLE_ID;
-  const ownerRoleId = process.env.OWNER_ROLE_ID;
   const channel = interaction.channel;
+  const managerRoleId = process.env.MANAGER_ROLE_ID;
 
   if (!channel) return;
 
-  if (
-    !interaction.member.roles.cache.has(supportRoleId) &&
-    !interaction.member.roles.cache.has(ownerRoleId)
-  ) {
+  // Fetch ticket from DB
+  const ticket = await Ticket.findOne({ channelId: channel.id });
+  if (!ticket) {
     return interaction.reply({
-      content: "⛔ You do not have permission to escalate tickets.",
+      content: "❌ Ticket data not found in the database.",
       ephemeral: true,
     });
   }
-  // Notify owner role
+
+  // Only claimer or manager can escalate
+  if (
+    ticket.claimerId !== interaction.user.id &&
+    !interaction.member.roles.cache.has(managerRoleId)
+  ) {
+    return interaction.reply({
+      content:
+        "⛔ Only the ticket claimer or a manager can escalate this ticket.",
+      ephemeral: true,
+    });
+  }
+
+  // Notify manager role
   await channel.send({
-    content: `🚨 This ticket has been escalated to the owners: <@&${ownerRoleId}>`,
+    content: `🚨 This ticket has been escalated to the Manager: <@&${managerRoleId}>`,
   });
 
   await interaction.reply({
-    content: "✅ Ticket escalated to owner successfully!",
+    content: "✅ Ticket escalated to manager successfully!",
     ephemeral: true,
   });
 }
