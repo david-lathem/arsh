@@ -42,7 +42,7 @@ module.exports = async (client, interaction) => {
         break;
 
       case "claimticket":
-        await handleClaimTicket(client, interaction, id);
+        await handleClaimTicket(client, interaction);
         break;
 
       case "resolveTicket":
@@ -233,7 +233,13 @@ async function handleOpenTicket(client, interaction) {
           PermissionFlagsBits.SendMessages,
         ],
       },
-      { id: SUPPORT_ROLE_ID, deny: [PermissionFlagsBits.ViewChannel] },
+      {
+        id: SUPPORT_ROLE_ID,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+        ],
+      },
     ],
   });
 
@@ -249,6 +255,10 @@ async function handleOpenTicket(client, interaction) {
 
   // Buttons
   const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`claimticket`)
+      .setLabel("Claim Ticket")
+      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId("resolveTicket")
       .setLabel("Resolve")
@@ -273,25 +283,18 @@ async function handleOpenTicket(client, interaction) {
     creatorId: interaction.user.id,
   });
 
-  const embed = new EmbedBuilder()
-    .setTitle("🎟️ New Ticket!")
-    .setDescription(
-      `Click the button below to claim this ticket.\n` +
-        `Only the first person to claim will get access.\n` +
-        `Support role will **never** see this ticket.`
-    )
-    .setColor("#ff7b00")
-    .setTimestamp();
+  // const embed = new EmbedBuilder()
+  //   .setTitle("🎟️ New Ticket!")
+  //   .setDescription(
+  //     `Click the button below to claim this ticket.\n` +
+  //       `Only the first person to claim will get access.\n` +
+  //       `Support role will **never** see this ticket.`
+  //   )
+  //   .setColor("#ff7b00")
+  //   .setTimestamp();
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`claimticket_${ticketChannel.id}`)
-      .setLabel("Claim Ticket")
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  const claimChannel = await client.channels.fetch(TICKET_CHANNEL_ID);
-  await claimChannel.send({ embeds: [embed], components: [row] });
+  // const claimChannel = await client.channels.fetch(TICKET_CHANNEL_ID);
+  // await claimChannel.send({ embeds: [embed], components: [row] });
 
   await interaction.reply({
     content: `✅ Your ticket has been created: ${ticketChannel}`,
@@ -299,8 +302,11 @@ async function handleOpenTicket(client, interaction) {
   });
 }
 
-async function handleClaimTicket(client, interaction, ticketId) {
-  const ticket = await Ticket.findOne({ channelId: ticketId });
+async function handleClaimTicket(client, interaction) {
+  const channel = interaction.channel;
+
+  const ticket = await Ticket.findOne({ channelId: channel.id });
+
   if (!ticket) {
     return interaction.reply({
       content: "❌ Ticket not found.",
@@ -309,15 +315,20 @@ async function handleClaimTicket(client, interaction, ticketId) {
   }
 
   if (ticket.status === "claimed") {
-    return interaction.reply({
+    return await interaction.reply({
       content: "❌ This ticket has already been claimed.",
       ephemeral: true,
     });
   }
 
+  await channel.permissionOverwrites.edit(process.env.SUPPORT_ROLE_ID, {
+    ViewChannel: false,
+    SendMessages: SUPPORT_ROLE_ID,
+  });
+
   // Update permissions for the claimer
-  const ticketChannel = await client.channels.fetch(ticketId);
-  await ticketChannel.permissionOverwrites.edit(interaction.user.id, {
+
+  await channel.permissionOverwrites.edit(interaction.user.id, {
     ViewChannel: true,
     SendMessages: true,
   });
@@ -329,13 +340,19 @@ async function handleClaimTicket(client, interaction, ticketId) {
   await ticket.save();
 
   // Update embed and remove button
-  const messages = await ticketChannel.messages.fetch({ limit: 50 });
+  const messages = await channel.messages.fetch({ limit: 50 });
   const embedMsg = messages.find((m) => m.embeds.length > 0);
   if (embedMsg) {
     const embed = EmbedBuilder.from(embedMsg.embeds[0]).setDescription(
       `This ticket has been claimed by <@${interaction.user.id}>.\nOnly they and managers can view this channel now.`
     );
-    await embedMsg.edit({ embeds: [embed] });
+
+    embedMsg.components[0].components.splice(0, 1);
+
+    await embedMsg.edit({
+      embeds: [embed],
+      components: embedMsg.components,
+    });
   }
 
   await interaction.reply({
