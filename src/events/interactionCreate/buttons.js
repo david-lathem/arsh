@@ -263,7 +263,7 @@ async function handleOpenTicket(client, interaction) {
 
   await ticketChannel.send({
     content: `<@${user.id}>`,
-    embeds: [embed],
+    embeds: [Ticketembed],
     components: [buttonRow],
   });
 
