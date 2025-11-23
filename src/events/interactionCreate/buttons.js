@@ -329,13 +329,13 @@ async function handleClaimTicket(client, interaction, ticketId) {
   await ticket.save();
 
   // Update embed and remove button
-  const messages = await ticketChannel.messages.fetch({ limit: 10 });
+  const messages = await ticketChannel.messages.fetch({ limit: 50 });
   const embedMsg = messages.find((m) => m.embeds.length > 0);
   if (embedMsg) {
     const embed = EmbedBuilder.from(embedMsg.embeds[0]).setDescription(
       `This ticket has been claimed by <@${interaction.user.id}>.\nOnly they and managers can view this channel now.`
     );
-    await embedMsg.edit({ embeds: [embed], components: [] });
+    await embedMsg.edit({ embeds: [embed] });
   }
 
   await interaction.reply({
