@@ -37,7 +37,7 @@ module.exports = async (client, interaction) => {
         break;
 
       case "openTicket":
-        await handleOpenTicket(interaction);
+        await handleOpenTicket(client, interaction);
         break;
 
       case "claimticket":
