@@ -8,6 +8,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
   ChannelType,
+  PermissionFlagsBits,
 } = require("discord.js");
 const discordTranscripts = require("discord-html-transcripts");
 const Attendance = require("../../models/Attendance");
