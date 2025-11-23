@@ -314,6 +314,12 @@ async function handleClaimTicket(client, interaction) {
     });
   }
 
+  if (!interaction.member.roles.cache.has(process.env.SUPPORT_ROLE_ID))
+    return await interaction.reply({
+      content: "❌ Only support can claim.",
+      ephemeral: true,
+    });
+
   if (ticket.status === "claimed") {
     return await interaction.reply({
       content: "❌ This ticket has already been claimed.",
