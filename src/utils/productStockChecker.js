@@ -9,6 +9,44 @@ function startStockNotifier(client) {
   });
 }
 
+function createStockEmbeds(outOfStock) {
+  const embeds = [];
+  let currentChunk = "";
+  let index = 1;
+
+  for (const p of outOfStock) {
+    const line = `${index}. \`${p.name}\` (Quantity: ${
+      p.stock_quantity ?? "Out Of Stock"
+    })\n`;
+
+    // If adding this line would exceed safe limit → push current embed and start new one
+    if ((currentChunk + line).length > 3500) {
+      embeds.push(
+        new EmbedBuilder()
+          .setTitle("⚠️ Out of Stock Products")
+          .setDescription(currentChunk)
+          .setColor("Red")
+      );
+      currentChunk = "";
+    }
+
+    currentChunk += line;
+    index++;
+  }
+
+  // Push the final chunk
+  if (currentChunk.length > 0) {
+    embeds.push(
+      new EmbedBuilder()
+        .setTitle("⚠️ Out of Stock Products")
+        .setDescription(currentChunk)
+        .setColor("Red")
+    );
+  }
+
+  return embeds;
+}
+
 async function checkAndNotifyStock(client) {
   try {
     console.log("[StockNotifier] Running stock check...");
@@ -27,19 +65,7 @@ async function checkAndNotifyStock(client) {
     }
 
     // Prepare embed
-    const embed = new EmbedBuilder()
-      .setTitle("⚠️ Out of Stock Products")
-      .setDescription(
-        outOfStock
-          .map(
-            (p, i) =>
-              `${i + 1}. \`${p.name}\` (Quantity: ${
-                p.stock_quantity || "Out Of Stock"
-              })`
-          )
-          .join("\n")
-      )
-      .setColor("Red");
+    const embeds = createStockEmbeds(outOfStock);
 
     const channel = client.channels.cache.get(
       process.env.STOCK_NOTIFIER_CHANNEL_ID
@@ -52,7 +78,7 @@ async function checkAndNotifyStock(client) {
       return;
     }
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({ embeds: [embeds] });
 
     console.log(
       `[StockNotifier] Sent notification for ${outOfStock.length} products.`
