@@ -78,7 +78,7 @@ async function checkAndNotifyStock(client) {
       return;
     }
 
-    await channel.send({ embeds: embeds });
+    for (const embed of embeds) await channel.send({ embeds: [embed] });
 
     console.log(
       `[StockNotifier] Sent notification for ${outOfStock.length} products.`
