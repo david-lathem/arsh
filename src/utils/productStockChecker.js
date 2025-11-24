@@ -17,7 +17,7 @@ function createStockEmbeds(outOfStock) {
   for (const p of outOfStock) {
     const line = `${index}. \`${p.name}\` (Quantity: ${
       p.stock_quantity ?? "Out Of Stock"
-    })\n`;
+    })\n\n`;
 
     // If adding this line would exceed safe limit → push current embed and start new one
     if ((currentChunk + line).length > 3500) {
@@ -55,7 +55,7 @@ async function checkAndNotifyStock(client) {
     const outOfStock = allProducts.filter(
       (p) =>
         p.stock_status === "outofstock" ||
-        p.stock_quantity !== null ||
+        p.stock_quantity === null ||
         p.stock_quantity < 10
     );
 
