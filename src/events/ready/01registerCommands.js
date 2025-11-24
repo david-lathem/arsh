@@ -1,3 +1,4 @@
+const { ApplicationCommandType } = require("discord.js");
 const { testServer } = require("../../../config.json");
 const areCommandsDifferent = require("../../utils/areCommandsDifferent");
 const getApplicationCommands = require("../../utils/getApplicationCommands");
@@ -14,7 +15,12 @@ module.exports = async (client) => {
     // await applicationCommands.set([]);
 
     for (const localCommand of localCommands) {
-      const { name, description, options } = localCommand;
+      const {
+        name,
+        description,
+        options,
+        type = ApplicationCommandType.ChatInput,
+      } = localCommand;
 
       // console.log(localCommand);
 
@@ -29,10 +35,14 @@ module.exports = async (client) => {
           continue;
         }
 
-        if (areCommandsDifferent(existingCommand, localCommand)) {
+        if (
+          areCommandsDifferent(existingCommand, localCommand) &&
+          type === ApplicationCommandType.ChatInput
+        ) {
           await applicationCommands.edit(existingCommand.id, {
             description,
             options,
+            type,
           });
 
           console.log(`🔁 Edited command "${name}".`);
@@ -49,6 +59,7 @@ module.exports = async (client) => {
           name,
           description,
           options,
+          type,
         });
 
         console.log(`👍 Registered command "${name}."`);
