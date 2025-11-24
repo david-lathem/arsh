@@ -1,6 +1,6 @@
 const cron = require("node-cron");
 const { EmbedBuilder } = require("discord.js");
-const { fetchAllProducts } = require("./utils/woocommerceClient"); // your existing function
+const { fetchAllProducts } = require("./woocommerceClient");
 
 function startStockNotifier(client) {
   // Every 2 hours
