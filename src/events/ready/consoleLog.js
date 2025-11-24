@@ -11,6 +11,10 @@ const {
 const User = require("../../models/User");
 const startMeetingJob = require("../../utils/ZoomClient");
 const Giveaway = require("../../models/Giveaway");
+const {
+  startStockNotifier,
+  checkAndNotifyStock,
+} = require("../../utils/productStockChecker");
 const DAILY_CHANNEL_ID = process.env.DAILY_CHANNEL_ID;
 
 module.exports = async (client) => {
@@ -21,6 +25,8 @@ module.exports = async (client) => {
 
   // WOOCOMMERECE INTEGRATION ORDER PAID AND SORTED
   startPoller(client);
+  checkAndNotifyStock(client);
+  startStockNotifier(client);
 
   // SEND DAILY SUMMARY ON HOW MUC ORDERS SORTED AND PAID AND OTHER THINGS
   scheduleDailySummary(client);

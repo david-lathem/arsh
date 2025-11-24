@@ -5,7 +5,9 @@ const consumerKey = process.env.WC_CONSUMER_KEY;
 const consumerSecret = process.env.WC_CONSUMER_SECRET;
 
 if (!storeUrl || !consumerKey || !consumerSecret) {
-  console.warn("WooCommerce credentials (WC_STORE_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET) not fully set in env.");
+  console.warn(
+    "WooCommerce credentials (WC_STORE_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET) not fully set in env."
+  );
 }
 
 const api = axios.create({
@@ -40,8 +42,36 @@ async function updateOrderStatus(orderId, payload) {
   return res.data;
 }
 
+async function fetchAllProducts(per_page = 100) {
+  let allProducts = [];
+  let page = 1;
+
+  while (true) {
+    const res = await api.get("/products", {
+      params: {
+        per_page,
+        page,
+        status: "publish",
+      },
+    });
+
+    console.log(`Page ${page} headers:`, res.headers);
+
+    const products = res.data;
+    allProducts = allProducts.concat(products);
+
+    // Stop if fewer than per_page items returned
+    if (products.length < per_page) break;
+
+    page++;
+  }
+
+  return allProducts;
+}
+
 module.exports = {
   fetchRecentOrders,
   getOrder,
   updateOrderStatus,
+  fetchAllProducts,
 };
