@@ -88,24 +88,25 @@ async function handleAttendanceSignIn(client, interaction) {
     record = await Attendance.create({ guildId, userId, dates: [] });
   }
 
-  const dayRecord = record.dates.find((d) => d.date === today);
+  const hasActiveSignIn = record.dates.find((d) => d.active);
 
-  if (dayRecord?.signIn) {
+  if (hasActiveSignIn) {
     return interaction.reply({
       ephemeral: true,
-      content: `⛔ You already **signed in** today.`,
+      content: `⛔ You are already **signed in** Please Sign Out first.`,
     });
   }
 
-  if (dayRecord) {
-    dayRecord.signIn = new Date();
-  } else {
-    record.dates.push({
-      date: today,
-      signIn: new Date(),
-      signOut: null,
-    });
-  }
+  // if (dayRecord) {
+  // dayRecord.signIn = new Date();
+  // } else {
+  record.dates.push({
+    date: today,
+    signIn: new Date(),
+    signOut: null,
+    active: true,
+  });
+  // }
 
   await record.save();
 
@@ -134,7 +135,7 @@ async function handleAttendanceSignIn(client, interaction) {
     }
   }
 
-  await sendSignInLog(client, interaction.user, interaction.guild, dayRecord);
+  await sendSignInLog(client, interaction.user, interaction.guild);
   return interaction.reply({
     ephemeral: true,
     content: `✅ **Sign-in successful!**`,
@@ -159,27 +160,29 @@ async function handleAttendanceSignOut(client, interaction) {
     });
   }
 
-  const dayRecord = record.dates.find((d) => d.date === today);
+  const dayRecord = record.dates.find((d) => d.active);
 
-  if (!dayRecord?.signIn) {
+  if (!dayRecord) {
     return interaction.reply({
       ephemeral: true,
-      content: "⛔ You haven't signed in today.",
+      content: "⛔ You haven't signed in.",
     });
   }
 
-  if (dayRecord.signOut) {
-    return interaction.reply({
-      ephemeral: true,
-      content: "⛔ You already signed out today.",
-    });
-  }
+  // if (dayRecord.signOut) {
+  //   return interaction.reply({
+  //     ephemeral: true,
+  //     content: "⛔ You already signed out today.",
+  //   });
+  // }
 
   dayRecord.signOut = new Date();
+  dayRecord.active = false;
+
   await record.save();
   await giveXp(userId, interaction.guild, "sign_out");
   // Send sign-out log with total hours
-  await sendSignOutLog(client, interaction.user, interaction.guild, dayRecord);
+  await sendSignOutLog(client, interaction.user, interaction.guild);
 
   return interaction.reply({
     ephemeral: true,

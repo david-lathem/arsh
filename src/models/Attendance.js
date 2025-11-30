@@ -15,6 +15,7 @@ const AttendanceSchema = new mongoose.Schema({
       date: { type: String, required: true },
       signIn: { type: Date, default: null },
       signOut: { type: Date, default: null },
+      active: { type: Boolean, default: false },
     },
   ],
 });
