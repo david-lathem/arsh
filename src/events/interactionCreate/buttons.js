@@ -182,7 +182,7 @@ async function handleAttendanceSignOut(client, interaction) {
   await record.save();
   await giveXp(userId, interaction.guild, "sign_out");
   // Send sign-out log with total hours
-  await sendSignOutLog(client, interaction.user, interaction.guild);
+  await sendSignOutLog(client, interaction.user, interaction.guild, dayRecord);
 
   return interaction.reply({
     ephemeral: true,
@@ -330,17 +330,17 @@ async function handleClaimTicket(client, interaction) {
     });
   }
 
-  await channel.permissionOverwrites.edit(process.env.SUPPORT_ROLE_ID, {
-    ViewChannel: false,
-    SendMessages: SUPPORT_ROLE_ID,
-  });
+  // await channel.permissionOverwrites.edit(process.env.SUPPORT_ROLE_ID, {
+  //   ViewChannel: false,
+  //   SendMessages: SUPPORT_ROLE_ID,
+  // });
 
   // Update permissions for the claimer
 
-  await channel.permissionOverwrites.edit(interaction.user.id, {
-    ViewChannel: true,
-    SendMessages: true,
-  });
+  // await channel.permissionOverwrites.edit(interaction.user.id, {
+  //   ViewChannel: true,
+  //   SendMessages: true,
+  // });
 
   // Update ticket in DB
   ticket.status = "claimed";
